@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: oci-keeper-single-runner
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   hunt:
@@ -39,6 +39,8 @@ jobs:
           OCI_BOOT_VOLUME_ID: ${{ secrets.OCI_BOOT_VOLUME_ID }}
           OCI_SUBNET_ID: ${{ secrets.OCI_SUBNET_ID }}
           OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
           MAX_RUN_SECONDS: 18000 # 5 horas de cacería continua
         run: python keeper.py

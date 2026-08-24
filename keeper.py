@@ -11,6 +11,26 @@ def log(msg):
     now = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
     print(f"[{now}] {msg}", flush=True)
 
+def notify_telegram(token, chat_id, message):
+    if not token or not chat_id:
+        return
+    try:
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = json.dumps({
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "Markdown"
+        }).encode('utf-8')
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0'}
+        )
+        urllib.request.urlopen(req, timeout=10)
+        log("Notificacion enviada a Telegram correctamente.")
+    except Exception as err:
+        log(f"No se pudo enviar notificacion a Telegram: {err}")
+
 def notify_webhook(webhook_url, message):
     if not webhook_url:
         return
@@ -67,6 +87,8 @@ def main():
     subnet_id = os.environ["OCI_SUBNET_ID"]
     ssh_key = os.environ["OCI_SSH_PUBLIC_KEY"].strip()
     webhook_url = os.environ.get("ALERT_WEBHOOK_URL", "")
+    telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
 
     # 2. Verificar si la instancia ya existe
     log("Verificando si la instancia solarsail ya se encuentra activa...")
@@ -79,6 +101,11 @@ def main():
         if active:
             inst = active[0]
             log(f"LA INSTANCIA YA EXISTE Y ESTA EN ESTADO: {inst.lifecycle_state} (OCID: {inst.id})")
+            notify_telegram(
+                telegram_token, 
+                telegram_chat_id, 
+                f"🎉 *¡Servidor Solarsail ya activo!*\nEstado: `{inst.lifecycle_state}`\nID: `{inst.id}`"
+            )
             notify_webhook(webhook_url, f"🎉 ¡Tu servidor Solarsail en Oracle Cloud ya está activo ({inst.lifecycle_state})!")
             return 0
     except Exception as e:
@@ -148,6 +175,15 @@ def main():
             except Exception as vnic_err:
                 log(f"Error consultando IP: {vnic_err}")
 
+            success_msg = (
+                f"🚨 *¡ÉXITO TOTAL! Servidor Creado en Oracle Cloud*\n\n"
+                f"🖥️ *Instancia:* `solarsail` (2 OCPUs / 12 GB RAM)\n"
+                f"💾 *Disco:* 200 GB Boot Volume (Datos intactos)\n"
+                f"🌐 *IP Pública:* `{public_ip}`\n"
+                f"⚡ *Estado:* `{instance.lifecycle_state}`\n"
+                f"📍 *Zona:* `{ad}`"
+            )
+            notify_telegram(telegram_token, telegram_chat_id, success_msg)
             notify_webhook(webhook_url, f"🚨 ¡ÉXITO! Tu servidor Solarsail en Oracle Cloud ha sido aprovisionado.\nIP Pública: `{public_ip}`\nEstado: `{instance.lifecycle_state}`")
             return 0
 
