@@ -11,6 +11,15 @@ def log(msg):
     now = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
     print(f"[{now}] {msg}", flush=True)
 
+def set_github_output(name, value):
+    output_file = os.environ.get("GITHUB_OUTPUT")
+    if output_file:
+        try:
+            with open(output_file, "a", encoding="utf-8") as f:
+                f.write(f"{name}={value}\n")
+        except Exception:
+            pass
+
 def notify_telegram(token, chat_id, message):
     if not token or not chat_id:
         return
@@ -28,8 +37,8 @@ def notify_telegram(token, chat_id, message):
         )
         urllib.request.urlopen(req, timeout=10)
         log("Notificacion enviada a Telegram correctamente.")
-    except Exception as err:
-        log(f"No se pudo enviar notificacion a Telegram: {err}")
+    except Exception:
+        log("No se pudo enviar notificacion a Telegram.")
 
 def notify_webhook(webhook_url, message):
     if not webhook_url:
@@ -107,6 +116,7 @@ def main():
                 f"🎉 *¡Servidor Solarsail ya activo!*\nEstado: `{inst.lifecycle_state}`\nID: `{inst.id}`"
             )
             notify_webhook(webhook_url, f"🎉 ¡Tu servidor Solarsail en Oracle Cloud ya está activo ({inst.lifecycle_state})!")
+            set_github_output("instance_created", "true")
             return 0
     except Exception as e:
         log(f"Aviso al listar instancias: {e}")
@@ -147,6 +157,7 @@ def main():
         elapsed = time.time() - start_time
         if elapsed > max_duration_seconds:
             log(f"Limite de sesion alcanzado ({int(elapsed/60)} mins). Terminando para ceder el turno al siguiente ciclo...")
+            set_github_output("instance_created", "false")
             return 0
 
         log(f"Intento #{attempt} - Solicitando capacidad en {ad}...")
@@ -185,6 +196,7 @@ def main():
             )
             notify_telegram(telegram_token, telegram_chat_id, success_msg)
             notify_webhook(webhook_url, f"🚨 ¡ÉXITO! Tu servidor Solarsail en Oracle Cloud ha sido aprovisionado.\nIP Pública: `{public_ip}`\nEstado: `{instance.lifecycle_state}`")
+            set_github_output("instance_created", "true")
             return 0
 
         except oci.exceptions.ServiceError as se:

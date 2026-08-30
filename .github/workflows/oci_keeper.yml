@@ -10,6 +10,10 @@ concurrency:
   group: oci-keeper-single-runner
   cancel-in-progress: true
 
+permissions:
+  actions: write
+  contents: read
+
 jobs:
   hunt:
     runs-on: ubuntu-latest
@@ -46,9 +50,17 @@ jobs:
         run: python keeper.py
 
       - name: Re-trigger next cycle if needed
-        if: always()
+        if: steps.keeper.outputs.instance_created != 'true'
         env:
           GH_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN || github.token }}
         run: |
           echo "Re-despachando el siguiente ciclo para mantener el bot 24/7..."
           gh workflow run oci_keeper.yml --repo ${{ github.repository }} || true
+
+      - name: Instance provisioned shutdown notice
+        if: steps.keeper.outputs.instance_created == 'true'
+        run: |
+          echo "========================================================="
+          echo " ¡INSTANCIA CAZADA CON ÉXITO Y ACTIVA!"
+          echo " El bot se apaga automáticamente para no hacer más intentos."
+          echo "========================================================="
